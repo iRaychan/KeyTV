@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.01';
+  const VERSION = '1.02';
   const KEYS = {
     playlists: 'keytv.v101.playlists', active: 'keytv.v101.activePlaylist',
     favourites: 'keytv.favourites', epg: 'keytv.epgUrl'
@@ -10,7 +10,7 @@
   const $ = id => document.getElementById(id);
   const els = {
     select: $('playlistSelect'), list: $('channelList'), empty: $('emptyChannels'), search: $('channelSearch'), category: $('categoryFilter'), favouritesOnly: $('favouritesOnly'), count: $('channelCount'),
-    video: $('video'), frame: $('playerFrame'), placeholder: $('playerPlaceholder'), loading: $('loadingIndicator'), now: $('nowPlaying'), nowCategory: $('nowCategory'), diagnostic: $('diagnostic'), diagnosticTitle: $('diagnosticTitle'), diagnosticMessage: $('diagnosticMessage'), diagnosticDetail: $('diagnosticDetail'), retry: $('retryBtn'),
+    video: $('video'), frame: $('playerFrame'), placeholder: $('playerPlaceholder'), loading: $('loadingIndicator'), now: $('nowPlaying'), nowCategory: $('nowCategory'), diagnostic: $('diagnostic'), diagnosticTitle: $('diagnosticTitle'), diagnosticMessage: $('diagnosticMessage'), diagnosticDetail: $('diagnosticDetail'), retry: $('retryBtn'), shareStream: $('shareStreamBtn'), copyStream: $('copyStreamBtn'), downloadStream: $('downloadStreamBtn'),
     playlistDialog: $('playlistDialog'), playlistForm: $('playlistForm'), managerDialog: $('managerDialog'), managerList: $('managerList'), formError: $('playlistFormError'), fileInput: $('playlistFile'), fileName: $('selectedFileName'), name: $('playlistName'), url: $('playlistUrl'), editingId: $('editingPlaylistId'), toast: $('toast')
   };
 
@@ -194,8 +194,30 @@
   }
 
   function showLoading(show) { els.loading.hidden = !show; }
-  function showDiagnostic(title, message, detail = '') { els.diagnosticTitle.textContent = title; els.diagnosticMessage.textContent = message; els.diagnosticDetail.textContent = detail; els.diagnostic.hidden = false; }
+  function showDiagnostic(title, message, detail = '') { const hasStream = Boolean(currentChannel()); els.diagnosticTitle.textContent = title; els.diagnosticMessage.textContent = message; els.diagnosticDetail.textContent = detail; els.shareStream.hidden = !hasStream || typeof navigator.share !== 'function'; els.copyStream.hidden = !hasStream; els.downloadStream.hidden = !hasStream; els.retry.hidden = !hasStream; els.diagnostic.hidden = false; }
   function hideDiagnostic() { els.diagnostic.hidden = true; }
+
+  function currentChannel() { return state.channels.find(channel => channel.url === state.selectedUrl); }
+  function safeFileName(value) { return String(value || 'KeyTV channel').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'KeyTV channel'; }
+
+  async function shareCurrentStream() {
+    const channel = currentChannel(); if (!channel || typeof navigator.share !== 'function') return;
+    try { await navigator.share({ title: channel.name, text: `Open ${channel.name} in an external media player`, url: channel.url }); }
+    catch (error) { if (error?.name !== 'AbortError') toast('This stream could not be shared'); }
+  }
+
+  async function copyCurrentStream() {
+    const channel = currentChannel(); if (!channel) return;
+    try { await navigator.clipboard.writeText(channel.url); toast('Stream link copied'); }
+    catch { const area = document.createElement('textarea'); area.value = channel.url; area.style.position = 'fixed'; area.style.opacity = '0'; document.body.append(area); area.select(); const copied = document.execCommand('copy'); area.remove(); toast(copied ? 'Stream link copied' : 'Copy was blocked by the browser'); }
+  }
+
+  function downloadCurrentStream() {
+    const channel = currentChannel(); if (!channel) return;
+    const escapedName = channel.name.replace(/[\r\n,]/g, ' '); const escapedGroup = (channel.group || 'Uncategorized').replace(/[\r\n"]/g, ' ');
+    const text = `#EXTM3U\n#EXTINF:-1 group-title="${escapedGroup}",${escapedName}\n${channel.url}\n`; const url = URL.createObjectURL(new Blob([text], { type: 'audio/x-mpegurl;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `${safeFileName(channel.name)}.m3u`; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); toast('Channel M3U downloaded');
+  }
 
   function switchPlaylist(id) { if (!id || id === state.activeId) return; state.activeId = id; els.managerDialog.close(); loadPlaylist(id); }
   function deletePlaylist(id) {
@@ -243,6 +265,7 @@
     [els.search, els.category, els.favouritesOnly].forEach(control => control.addEventListener(control === els.search ? 'input' : 'change', renderChannels));
     $('fullscreenBtn').addEventListener('click', () => { const target = els.video; if (target.webkitEnterFullscreen) target.webkitEnterFullscreen(); else els.frame.requestFullscreen?.(); });
     els.retry.addEventListener('click', () => { const channel = state.channels.find(ch => ch.url === state.selectedUrl); if (channel) { state.retryCount = 0; playChannel(channel); } });
+    els.shareStream.addEventListener('click', shareCurrentStream); els.copyStream.addEventListener('click', copyCurrentStream); els.downloadStream.addEventListener('click', downloadCurrentStream);
     els.video.addEventListener('loadstart', () => showLoading(true)); els.video.addEventListener('waiting', () => showLoading(true)); els.video.addEventListener('playing', () => { showLoading(false); hideDiagnostic(); }); els.video.addEventListener('canplay', () => showLoading(false)); els.video.addEventListener('error', () => { const channel = state.channels.find(ch => ch.url === state.selectedUrl); if (channel) handlePlaybackFailure(channel); });
     $('movieFile').addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; clearPlayback(); state.objectUrl = URL.createObjectURL(file); els.video.src = state.objectUrl; els.now.textContent = file.name; els.nowCategory.textContent = 'Local movie'; els.placeholder.hidden = true; hideDiagnostic(); els.video.play().catch(handleAutoplay); });
     $('loadEpgBtn').addEventListener('click', loadEpg);

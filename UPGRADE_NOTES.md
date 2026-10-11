@@ -1,8 +1,8 @@
-# Upgrade patch notes: V1.00 → V1.01
+# Upgrade patch notes: V1.01 → V1.02
 
-The original V1.00 source ZIP was not available in this workspace, so this package is a clean, drop-in replacement rather than a line-by-line patch against the old files.
+V1.02 keeps the V1.01 playlist manager and native Safari playback path, and adds external-player handoff tools for incompatible channels.
 
-To apply it as an upgrade, replace the V1.00 web files with:
+To apply it as an upgrade, replace the V1.01 web files with:
 
 - `index.html`
 - `styles.css`
@@ -11,4 +11,4 @@ To apply it as an upgrade, replace the V1.00 web files with:
 - `sw.js`
 - `assets/keytv-icon.svg`
 
-No server or build step is required. Browser-local saved data is left untouched. V1.01 uses new namespaced keys for its playlist collection and retains the V1.00 favourites key.
+No server or build step is required. Browser-local playlists and favourites are left untouched.

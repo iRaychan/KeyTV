@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="KeyTV">
-  <title>KeyTV V1.01</title>
+  <title>KeyTV V1.02</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/keytv-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -16,7 +16,7 @@
   <header class="app-header">
     <div class="brand" aria-label="KeyTV">
       <span class="brand-mark" aria-hidden="true">▶</span>
-      <span><strong>KeyTV</strong><small>V1.01</small></span>
+      <span><strong>KeyTV</strong><small>V1.02</small></span>
     </div>
     <div class="playlist-toolbar">
       <label class="sr-only" for="playlistSelect">Current playlist</label>
@@ -63,7 +63,12 @@
           <p id="diagnosticMessage"></p>
           <small id="diagnosticDetail"></small>
         </div>
-        <button id="retryBtn" class="button secondary" type="button">Retry</button>
+        <div class="diagnostic-actions">
+          <button id="shareStreamBtn" class="button secondary" type="button" hidden>Share stream</button>
+          <button id="copyStreamBtn" class="button secondary" type="button" hidden>Copy link</button>
+          <button id="downloadStreamBtn" class="button secondary" type="button" hidden>Download M3U</button>
+          <button id="retryBtn" class="button secondary" type="button">Retry</button>
+        </div>
       </section>
 
       <section class="panel compact-panel">
