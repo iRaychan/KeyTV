@@ -1,1 +1,10 @@
-{"name":"KeyTV — IPTV & Movie Player","short_name":"KeyTV","start_url":"./","scope":"./","display":"standalone","background_color":"#090e1b","theme_color":"#0b1020","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "name": "KeyTV",
+  "short_name": "KeyTV",
+  "description": "Safari-friendly IPTV and local movie player",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#08101f",
+  "theme_color": "#08101f",
+  "icons": [{"src":"assets/keytv-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

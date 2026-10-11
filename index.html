@@ -1,3 +1,129 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1020"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml"><title>KeyTV</title><style>
-:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:#090e1b;color:#f1f5ff}*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;gap:12px;padding:16px 20px;background:#111a2c;border-bottom:1px solid #26324a}h1{font-size:23px;margin:0;color:#76aaff}.tag{font-size:12px;color:#9caecb}.shell{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100dvh - 68px)}aside{background:#10192b;border-right:1px solid #29344a;padding:16px;overflow:auto;max-height:calc(100dvh - 68px)}main{padding:22px;min-width:0}.stack{display:grid;gap:10px}input,select,button{font:inherit;border-radius:10px;border:1px solid #35415b;padding:11px;background:#19253b;color:white;min-width:0}input[type=file]{width:100%;font-size:12px}button{cursor:pointer;background:#2554b6;border:0;font-weight:600}button.secondary{background:#26344e}button:hover{filter:brightness(1.12)}.row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.row input{flex:1;width:0}.hint,.meta{color:#9caecb;font-size:12px;line-height:1.5}.divider{border:0;border-top:1px solid #2b3851;margin:18px 0}.channel{display:flex;align-items:center;gap:10px;padding:11px;border-radius:10px;cursor:pointer;border:1px solid transparent}.channel:hover,.channel.active{background:#213454;border-color:#4268a3}.channel .name{font-size:14px;font-weight:600}.channel .sub{font-size:11px;color:#9eacc3}.logo{width:42px;height:42px;object-fit:contain;background:#1b2941;border-radius:8px;padding:4px}.fav{background:transparent;border:0;font-size:20px;padding:5px;color:#e8c86b}.grow{flex:1;min-width:0}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}video{display:block;width:100%;aspect-ratio:16/9;background:black;border-radius:14px;max-height:70dvh}.playerhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}h2{margin:0;font-size:20px}.panel{background:#131e31;border:1px solid #283751;border-radius:14px;padding:16px;margin-top:16px}.empty{padding:25px;text-align:center;color:#a4b2cc}.status{color:#c7d3e8;font-size:13px;word-break:break-word}#channels{margin-top:12px}.guide{font-size:13px;color:#c5d2ea;white-space:pre-wrap;line-height:1.6}.hidden{display:none!important}@media(max-width:760px){.shell{display:flex;flex-direction:column}aside{max-height:none;border-right:0;border-bottom:1px solid #29344a}main{padding:14px}header{padding:12px 16px}.playerhead{align-items:flex-start}video{border-radius:8px}}
-</style></head><body><header><img src="icon.svg" width="42" height="42" alt=""><div><h1>KeyTV <span class="tag">V1.00</span></h1><div class="tag">Your Personal IPTV & Movie Player</div></div></header><div class="shell"><aside><div class="stack"><strong>Playlist</strong><div class="row"><input id="playlistUrl" type="url" placeholder="Paste M3U playlist URL" aria-label="Playlist URL"><button id="loadUrl">Load</button></div><input id="playlistFile" type="file" accept=".m3u,.m3u8,text/plain,audio/x-mpegurl"><div class="hint">Import your own authorized IPTV playlist. Remote servers must permit browser access (CORS).</div><div class="row"><button class="secondary" id="clear">Clear playlist</button><button class="secondary" id="reload">Reload URL</button></div><hr class="divider"><input id="search" placeholder="Search channels" aria-label="Search channels"><select id="category" aria-label="Category"><option value="">All categories</option></select><label class="hint"><input type="checkbox" id="onlyFav"> Favourites only</label><div id="count" class="meta">0 channels</div></div><div id="channels"><div class="empty">Add an M3U playlist to get started.</div></div></aside><main><div class="playerhead"><div><h2 id="nowPlaying">Select a channel</h2><div class="meta" id="nowCategory">KeyTV Player</div></div><button class="secondary" id="full">Fullscreen</button></div><video id="video" controls playsinline webkit-playsinline preload="none"></video><p class="status" id="status" role="status">Ready. Add a playlist or play a local movie file.</p><div class="panel stack"><strong>Local movie playback</strong><input id="movieFile" type="file" accept="video/*,.mkv,.avi,.mp4,.mov,.webm,.m4v,.ts"><div class="hint">Local files never leave your device. Safari only plays codecs it supports; MKV/AVI files may not play.</div></div><div class="panel stack"><strong>TV programme guide (EPG)</strong><div class="row"><input id="epgUrl" type="url" placeholder="XMLTV EPG URL (optional)" aria-label="EPG URL"><button id="loadEpg">Load</button></div><div id="guide" class="guide">Add an XMLTV EPG URL to see current and upcoming programmes.</div><div class="hint">EPG requires an accessible XMLTV feed with channel IDs matching your playlist.</div></div></main></div><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08101f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KeyTV">
+  <title>KeyTV V1.01</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/keytv-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand" aria-label="KeyTV">
+      <span class="brand-mark" aria-hidden="true">▶</span>
+      <span><strong>KeyTV</strong><small>V1.01</small></span>
+    </div>
+    <div class="playlist-toolbar">
+      <label class="sr-only" for="playlistSelect">Current playlist</label>
+      <select id="playlistSelect" title="Switch playlist"><option value="">No saved playlist</option></select>
+      <button id="managePlaylistsBtn" class="button secondary" type="button">Manage playlists</button>
+      <button id="addPlaylistBtn" class="button primary" type="button">Add playlist</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="sidebar" aria-label="Channels">
+      <div class="sidebar-tools">
+        <input id="channelSearch" type="search" placeholder="Search channels" autocomplete="off">
+        <select id="categoryFilter" aria-label="Filter by category"><option value="all">All categories</option></select>
+        <label class="check-row"><input id="favouritesOnly" type="checkbox"> Favourites only</label>
+        <div id="channelCount" class="channel-count">0 / 0 channels</div>
+      </div>
+      <div id="channelList" class="channel-list" aria-live="polite"></div>
+      <div id="emptyChannels" class="empty-state">
+        <span class="empty-icon">☰</span>
+        <strong>No channels loaded</strong>
+        <span>Add a playlist URL or upload an M3U file.</span>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="now-playing-row">
+        <div>
+          <h1 id="nowPlaying">Choose a channel</h1>
+          <p id="nowCategory">Ready</p>
+        </div>
+        <button id="fullscreenBtn" class="button secondary" type="button">Fullscreen</button>
+      </div>
+
+      <div id="playerFrame" class="player-frame">
+        <video id="video" controls playsinline webkit-playsinline preload="metadata"></video>
+        <div id="playerPlaceholder" class="player-placeholder" aria-hidden="true"><span>▶</span></div>
+        <div id="loadingIndicator" class="player-loading" hidden><span class="spinner"></span><strong>Loading stream…</strong></div>
+      </div>
+
+      <section id="diagnostic" class="diagnostic" aria-live="polite" hidden>
+        <div>
+          <strong id="diagnosticTitle">Playback issue</strong>
+          <p id="diagnosticMessage"></p>
+          <small id="diagnosticDetail"></small>
+        </div>
+        <button id="retryBtn" class="button secondary" type="button">Retry</button>
+      </section>
+
+      <section class="panel compact-panel">
+        <h2>Local movie playback</h2>
+        <label class="file-picker">
+          <input id="movieFile" type="file" accept="video/*,.mkv,.avi">
+          <span>Choose movie file</span>
+        </label>
+        <p>Local files never leave your device. Safari only plays codecs it supports; some MKV/AVI files may not play.</p>
+      </section>
+
+      <section class="panel">
+        <h2>TV programme guide (EPG)</h2>
+        <div class="input-action">
+          <input id="epgUrl" type="url" inputmode="url" placeholder="XMLTV EPG URL (optional)">
+          <button id="loadEpgBtn" class="button primary" type="button">Load</button>
+        </div>
+        <p id="epgStatus">Programme guide is optional. The URL must allow browser access.</p>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="playlistDialog">
+    <form id="playlistForm" method="dialog">
+      <div class="dialog-header">
+        <div><h2 id="dialogTitle">Add playlist</h2><p>Save a URL or upload an M3U/M3U8 file.</p></div>
+        <button class="icon-button" value="cancel" aria-label="Close" type="submit">×</button>
+      </div>
+      <input id="editingPlaylistId" type="hidden">
+      <label>Playlist name<input id="playlistName" required maxlength="80" placeholder="Hong Kong TV"></label>
+      <div class="source-tabs" role="tablist" aria-label="Playlist source">
+        <button id="urlTab" class="source-tab active" type="button" role="tab" aria-selected="true">URL</button>
+        <button id="fileTab" class="source-tab" type="button" role="tab" aria-selected="false">M3U file</button>
+      </div>
+      <div id="urlSource" class="source-panel">
+        <label>Playlist URL<input id="playlistUrl" type="url" inputmode="url" placeholder="https://example.com/playlist.m3u8"></label>
+        <p class="hint">The playlist server must allow browser access. Stream playback permissions are checked separately by Safari.</p>
+      </div>
+      <div id="fileSource" class="source-panel" hidden>
+        <label class="file-drop">Choose an M3U/M3U8 file<input id="playlistFile" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl"></label>
+        <p id="selectedFileName" class="hint">No file selected</p>
+      </div>
+      <p id="playlistFormError" class="form-error" hidden></p>
+      <div class="dialog-actions">
+        <button class="button secondary" value="cancel" type="submit">Cancel</button>
+        <button id="savePlaylistBtn" class="button primary" value="default" type="submit">Save &amp; load</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="managerDialog" class="manager-dialog">
+    <div class="dialog-header">
+      <div><h2>My playlists</h2><p>Switch, rename, update or remove saved playlists.</p></div>
+      <button id="closeManagerBtn" class="icon-button" aria-label="Close" type="button">×</button>
+    </div>
+    <div id="managerList" class="manager-list"></div>
+    <div class="dialog-actions"><button id="managerAddBtn" class="button primary" type="button">Add playlist</button></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
