@@ -1,8 +1,8 @@
-# Upgrade patch notes: V1.01 → V1.02
+# Upgrade patch notes: V1.02 → V1.03
 
-V1.02 keeps the V1.01 playlist manager and native Safari playback path, and adds external-player handoff tools for incompatible channels.
+V1.03 keeps the V1.02 playlist manager, native Safari playback and external-player handoff tools. It adds MPEG-DASH support, an optional HLS compatibility mode and precise browser-restriction diagnostics.
 
-To apply it as an upgrade, replace the V1.01 web files with:
+To apply it as an upgrade, replace the V1.02 web files with:
 
 - `index.html`
 - `styles.css`

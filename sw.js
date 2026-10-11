@@ -1,4 +1,4 @@
-const CACHE = 'keytv-v1.02-shell';
+const CACHE = 'keytv-v1.03-shell';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './assets/keytv-icon.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('keytv-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));

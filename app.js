@@ -1,16 +1,16 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.02';
+  const VERSION = '1.03';
   const KEYS = {
     playlists: 'keytv.v101.playlists', active: 'keytv.v101.activePlaylist',
     favourites: 'keytv.favourites', epg: 'keytv.epgUrl'
   };
-  const state = { playlists: [], activeId: '', channels: [], selectedUrl: '', sourceMode: 'url', hls: null, retryCount: 0, retryTimer: 0, objectUrl: '' };
+  const state = { playlists: [], activeId: '', channels: [], selectedUrl: '', sourceMode: 'url', hls: null, dash: null, forceHls: false, retryCount: 0, retryTimer: 0, objectUrl: '' };
   const $ = id => document.getElementById(id);
   const els = {
     select: $('playlistSelect'), list: $('channelList'), empty: $('emptyChannels'), search: $('channelSearch'), category: $('categoryFilter'), favouritesOnly: $('favouritesOnly'), count: $('channelCount'),
-    video: $('video'), frame: $('playerFrame'), placeholder: $('playerPlaceholder'), loading: $('loadingIndicator'), now: $('nowPlaying'), nowCategory: $('nowCategory'), diagnostic: $('diagnostic'), diagnosticTitle: $('diagnosticTitle'), diagnosticMessage: $('diagnosticMessage'), diagnosticDetail: $('diagnosticDetail'), retry: $('retryBtn'), shareStream: $('shareStreamBtn'), copyStream: $('copyStreamBtn'), downloadStream: $('downloadStreamBtn'),
+    video: $('video'), frame: $('playerFrame'), placeholder: $('playerPlaceholder'), loading: $('loadingIndicator'), now: $('nowPlaying'), nowCategory: $('nowCategory'), diagnostic: $('diagnostic'), diagnosticTitle: $('diagnosticTitle'), diagnosticMessage: $('diagnosticMessage'), diagnosticDetail: $('diagnosticDetail'), retry: $('retryBtn'), compatibility: $('compatibilityBtn'), shareStream: $('shareStreamBtn'), copyStream: $('copyStreamBtn'), downloadStream: $('downloadStreamBtn'),
     playlistDialog: $('playlistDialog'), playlistForm: $('playlistForm'), managerDialog: $('managerDialog'), managerList: $('managerList'), formError: $('playlistFormError'), fileInput: $('playlistFile'), fileName: $('selectedFileName'), name: $('playlistName'), url: $('playlistUrl'), editingId: $('editingPlaylistId'), toast: $('toast')
   };
 
@@ -81,8 +81,15 @@
     for (const raw of lines) {
       const line = raw.trim(); if (!line) continue;
       if (line.startsWith('#EXTINF:')) {
-        const comma = line.indexOf(','); const attrs = comma >= 0 ? line.slice(0, comma) : line; const attr = key => attrs.match(new RegExp(`${key}="([^"]*)"`, 'i'))?.[1]?.trim() || '';
-        info = { name: (comma >= 0 ? line.slice(comma + 1).trim() : '') || attr('tvg-name') || 'Unnamed channel', logo: attr('tvg-logo'), group: attr('group-title') || 'Uncategorized', tvgId: attr('tvg-id') };
+        let comma = -1; let quoted = false;
+        for (let index = 0; index < line.length; index += 1) { if (line[index] === '"') quoted = !quoted; else if (line[index] === ',' && !quoted) { comma = index; break; } }
+        const attrs = comma >= 0 ? line.slice(0, comma) : line; const attr = key => attrs.match(new RegExp(`${key}="([^"]*)"`, 'i'))?.[1]?.trim() || '';
+        const rawGroup = attr('group-title'); const group = !rawGroup || rawGroup.toLowerCase() === 'undefined' ? 'Uncategorized' : rawGroup;
+        info = { name: (comma >= 0 ? line.slice(comma + 1).trim() : '') || attr('tvg-name') || 'Unnamed channel', logo: attr('tvg-logo'), group, tvgId: attr('tvg-id'), referrer: attr('http-referrer'), userAgent: attr('http-user-agent') };
+      } else if (line.startsWith('#EXTVLCOPT:') && info) {
+        const option = line.slice(11); const split = option.indexOf('='); const key = split >= 0 ? option.slice(0, split).toLowerCase() : ''; const value = split >= 0 ? option.slice(split + 1).trim() : '';
+        if (key === 'http-referrer' && !info.referrer) info.referrer = value;
+        if (key === 'http-user-agent' && !info.userAgent) info.userAgent = value;
       } else if (!line.startsWith('#') && info) {
         channels.push({ ...info, url: line, id: `${info.tvgId || info.name}|${line}` }); info = null;
       }
@@ -125,25 +132,38 @@
       const row = document.createElement('div'); row.className = `channel-card${channel.url === state.selectedUrl ? ' active' : ''}`; row.title = channel.name; row.tabIndex = 0; row.setAttribute('role', 'button'); row.addEventListener('click', () => playChannel(channel)); row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playChannel(channel); } });
       const logo = channel.logo ? document.createElement('img') : document.createElement('span'); logo.className = `channel-logo${channel.logo ? '' : ' logo-fallback'}`;
       if (channel.logo) { logo.src = channel.logo; logo.alt = ''; logo.loading = 'lazy'; logo.referrerPolicy = 'no-referrer'; logo.addEventListener('error', () => { logo.removeAttribute('src'); logo.classList.add('logo-fallback'); logo.textContent = channel.name.slice(0, 1).toUpperCase(); }); } else logo.textContent = channel.name.slice(0, 1).toUpperCase();
-      const text = document.createElement('span'); text.className = 'channel-text'; const name = document.createElement('span'); name.className = 'channel-name'; name.textContent = channel.name; const category = document.createElement('span'); category.className = 'channel-group'; category.textContent = channel.group || 'Uncategorized'; text.append(name, category);
+      const text = document.createElement('span'); text.className = 'channel-text'; const name = document.createElement('span'); name.className = 'channel-name'; name.textContent = channel.name; const category = document.createElement('span'); category.className = 'channel-group'; category.textContent = `${channel.group || 'Uncategorized'}${channelLabel(channel)}`; text.append(name, category);
       const star = document.createElement('button'); star.type = 'button'; star.className = 'favourite'; star.textContent = favourites.has(channel.id) ? '★' : '☆'; star.title = 'Toggle favourite'; star.addEventListener('click', event => { event.stopPropagation(); toggleFavourite(channel.id); });
       row.append(logo, text, star); els.list.append(row);
     });
   }
 
   function toggleFavourite(id) { const favourites = getFavourites(); favourites.has(id) ? favourites.delete(id) : favourites.add(id); store(KEYS.favourites, [...favourites]); renderChannels(); }
-  function isHls(url) { return /\.m3u8(?:$|[?#])/i.test(url) || /(?:format|type)=m3u8/i.test(url); }
+  function isHls(url) { return /\.m3u8(?:$|[?#])/i.test(url) || /m3u8/i.test(url); }
+  function isDash(url) { return /\.mpd(?:$|[?#])/i.test(url) || /(?:format|type)[=(]mpd/i.test(url); }
+  function isMixedContent(url) { try { return location.protocol === 'https:' && new URL(url, location.href).protocol === 'http:'; } catch { return false; } }
+  function channelLabel(channel) { if (isMixedContent(channel.url)) return ' · HTTP blocked'; if (isDash(channel.url)) return ' · DASH'; if (/\[geo-blocked\]/i.test(channel.name)) return ' · Geo-blocked'; if (channel.referrer || channel.userAgent) return ' · Special access'; return ''; }
   function destroyHls() { if (state.hls) { state.hls.destroy(); state.hls = null; } }
-  function clearPlayback() { clearTimeout(state.retryTimer); destroyHls(); els.video.pause(); els.video.removeAttribute('src'); els.video.load(); if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = ''; } state.selectedUrl = ''; state.retryCount = 0; }
+  function destroyDash() { if (state.dash) { state.dash.reset(); state.dash = null; } }
+  function clearPlayback() { clearTimeout(state.retryTimer); destroyHls(); destroyDash(); els.video.pause(); els.video.removeAttribute('src'); els.video.load(); if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = ''; } state.selectedUrl = ''; state.forceHls = false; state.retryCount = 0; }
 
-  async function playChannel(channel, retrying = false) {
-    if (!retrying) state.retryCount = 0;
-    clearTimeout(state.retryTimer); destroyHls(); hideDiagnostic(); showLoading(true); els.placeholder.hidden = true;
+  async function playChannel(channel, retrying = false, forceHls = false) {
+    if (!retrying) { state.retryCount = 0; state.forceHls = forceHls; }
+    clearTimeout(state.retryTimer); destroyHls(); destroyDash(); hideDiagnostic(); showLoading(true); els.placeholder.hidden = true;
     state.selectedUrl = channel.url; els.now.textContent = channel.name; els.nowCategory.textContent = channel.group || 'Uncategorized'; renderChannels();
     els.video.pause(); els.video.removeAttribute('src'); els.video.load();
+    if (isMixedContent(channel.url)) {
+      showLoading(false); showDiagnostic('Blocked insecure HTTP stream', 'This channel uses HTTP, but KeyTV on GitHub Pages uses HTTPS. Safari and Edge must block this mixed-content video.', 'The channel server needs a working HTTPS address. Its URL cannot be safely upgraded by KeyTV; use Download M3U with VLC/KeyPlayer instead.'); return;
+    }
     try {
       const nativeHls = Boolean(els.video.canPlayType('application/vnd.apple.mpegurl') || els.video.canPlayType('application/x-mpegURL'));
-      if (isHls(channel.url) && !nativeHls) {
+      if (isDash(channel.url)) {
+        await ensureDashJs();
+        if (!window.MediaSource || !window.dashjs) throw new Error('This browser does not provide MPEG-DASH playback support.');
+        const player = state.dash = window.dashjs.MediaPlayer().create();
+        player.on(window.dashjs.MediaPlayer.events.ERROR, event => handlePlaybackFailure(channel, `DASH error ${event?.error?.code || event?.error || 'unknown'}`));
+        player.initialize(els.video, channel.url, true);
+      } else if (isHls(channel.url) && (!nativeHls || state.forceHls)) {
         await ensureHlsJs();
         if (!window.Hls?.isSupported()) throw new Error('This browser does not provide a compatible HLS playback engine.');
         const hls = state.hls = new window.Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 30, maxBufferLength: 30 });
@@ -172,6 +192,15 @@
     return ensureHlsJs.promise;
   }
 
+  function ensureDashJs() {
+    if (window.dashjs) return Promise.resolve();
+    if (ensureDashJs.promise) return ensureDashJs.promise;
+    ensureDashJs.promise = new Promise((resolve, reject) => {
+      const script = document.createElement('script'); script.src = 'https://cdn.dashjs.org/v5.2.1/modern/umd/dash.all.min.js'; script.crossOrigin = 'anonymous'; script.onload = resolve; script.onerror = () => reject(new Error('The optional MPEG-DASH player could not be loaded.')); document.head.append(script);
+    });
+    return ensureDashJs.promise;
+  }
+
   function handleHlsError(data, channel) {
     const detail = `${data.type || 'HLS error'} / ${data.details || 'unknown'}`;
     if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && state.retryCount < 2) return scheduleRetry(channel, detail);
@@ -181,20 +210,22 @@
 
   function scheduleRetry(channel, detail) {
     state.retryCount += 1; const delay = state.retryCount === 1 ? 1200 : 2500;
-    showDiagnostic('Temporary stream problem', `Retrying automatically (${state.retryCount}/2)…`, detail); state.retryTimer = setTimeout(() => playChannel(channel, true), delay);
+    showDiagnostic('Temporary stream problem', `Retrying automatically (${state.retryCount}/2)…`, detail); state.retryTimer = setTimeout(() => playChannel(channel, true, state.forceHls), delay);
   }
 
   function handlePlaybackFailure(channel, technical = '') {
-    showLoading(false); const error = els.video.error; let title = 'Playback failed'; let message = 'Safari could not play this stream.';
+    showLoading(false); const error = els.video.error; let title = 'Playback failed'; let message = 'The browser could not play this stream.';
     if (error?.code === MediaError.MEDIA_ERR_NETWORK) { title = 'Network or access error'; message = 'The stream could not be downloaded. The server may be offline, require authorization, or block browser access (CORS).'; }
-    else if (error?.code === MediaError.MEDIA_ERR_DECODE) { title = 'Codec or stream error'; message = 'Safari received the stream but could not decode its audio or video format.'; }
-    else if (error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) { title = 'Unsupported stream'; message = 'Safari does not support this stream format or codec, or the server refused browser playback.'; }
+    else if (error?.code === MediaError.MEDIA_ERR_DECODE) { title = 'Codec or stream error'; message = 'The browser received the stream but could not decode its audio or video format.'; }
+    else if (error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) { title = 'Unsupported stream'; message = 'The browser does not support this stream format or codec, or the server refused browser playback.'; }
+    if (/\[geo-blocked\]/i.test(channel.name)) { title = 'Location-restricted stream'; message = 'The provider refused this channel from your current location.'; }
+    else if (channel.referrer || channel.userAgent) { title = 'Stream requires special access'; message = 'This channel expects a specific referrer or User-Agent header that a normal webpage is not allowed to set.'; }
     if (state.retryCount < 2 && (!error || error.code === MediaError.MEDIA_ERR_NETWORK)) return scheduleRetry(channel, technical || message);
     showDiagnostic(title, message, `${technical ? `${technical}. ` : ''}KeyTV cannot bypass CORS, provider authentication, geo-blocking, DRM, or unsupported codecs.`);
   }
 
   function showLoading(show) { els.loading.hidden = !show; }
-  function showDiagnostic(title, message, detail = '') { const hasStream = Boolean(currentChannel()); els.diagnosticTitle.textContent = title; els.diagnosticMessage.textContent = message; els.diagnosticDetail.textContent = detail; els.shareStream.hidden = !hasStream || typeof navigator.share !== 'function'; els.copyStream.hidden = !hasStream; els.downloadStream.hidden = !hasStream; els.retry.hidden = !hasStream; els.diagnostic.hidden = false; }
+  function showDiagnostic(title, message, detail = '') { const channel = currentChannel(); const hasStream = Boolean(channel); els.diagnosticTitle.textContent = title; els.diagnosticMessage.textContent = message; els.diagnosticDetail.textContent = detail; els.compatibility.hidden = !hasStream || !isHls(channel.url) || isMixedContent(channel.url) || state.forceHls; els.shareStream.hidden = !hasStream || typeof navigator.share !== 'function'; els.copyStream.hidden = !hasStream; els.downloadStream.hidden = !hasStream; els.retry.hidden = !hasStream; els.diagnostic.hidden = false; }
   function hideDiagnostic() { els.diagnostic.hidden = true; }
 
   function currentChannel() { return state.channels.find(channel => channel.url === state.selectedUrl); }
@@ -265,6 +296,7 @@
     [els.search, els.category, els.favouritesOnly].forEach(control => control.addEventListener(control === els.search ? 'input' : 'change', renderChannels));
     $('fullscreenBtn').addEventListener('click', () => { const target = els.video; if (target.webkitEnterFullscreen) target.webkitEnterFullscreen(); else els.frame.requestFullscreen?.(); });
     els.retry.addEventListener('click', () => { const channel = state.channels.find(ch => ch.url === state.selectedUrl); if (channel) { state.retryCount = 0; playChannel(channel); } });
+    els.compatibility.addEventListener('click', () => { const channel = currentChannel(); if (channel) { state.retryCount = 0; playChannel(channel, false, true); } });
     els.shareStream.addEventListener('click', shareCurrentStream); els.copyStream.addEventListener('click', copyCurrentStream); els.downloadStream.addEventListener('click', downloadCurrentStream);
     els.video.addEventListener('loadstart', () => showLoading(true)); els.video.addEventListener('waiting', () => showLoading(true)); els.video.addEventListener('playing', () => { showLoading(false); hideDiagnostic(); }); els.video.addEventListener('canplay', () => showLoading(false)); els.video.addEventListener('error', () => { const channel = state.channels.find(ch => ch.url === state.selectedUrl); if (channel) handlePlaybackFailure(channel); });
     $('movieFile').addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; clearPlayback(); state.objectUrl = URL.createObjectURL(file); els.video.src = state.objectUrl; els.now.textContent = file.name; els.nowCategory.textContent = 'Local movie'; els.placeholder.hidden = true; hideDiagnostic(); els.video.play().catch(handleAutoplay); });
